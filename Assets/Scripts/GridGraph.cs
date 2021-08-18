@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 
 namespace GameU
 {
@@ -18,6 +19,9 @@ namespace GameU
 
         [SerializeField]
         protected LineRenderer pathRenderer;
+
+        [SerializeField]
+        protected TextMeshProUGUI pathCostText;
 
         public Vector2Int gridSize = Vector2Int.one * 100;
         public LayerMask obstacleLayers;
@@ -74,7 +78,7 @@ namespace GameU
         private void Update()
         {
             pathRenderer.positionCount = 0;
-            var path = FindPath(start.position, goal.position);
+            var path = FindPath(start.position, goal.position, out float totalCost);
             if (path != null && path.Count > 0)
             {
                 Vector3 s = GridToWorld(path[0].coords);
@@ -92,6 +96,10 @@ namespace GameU
                     }
                     Debug.DrawLine(s, e, Color.magenta);
                     s = e;
+                }
+                if (pathCostText)
+                {
+                    pathCostText.text = $"Cost: {totalCost}";
                 }
             }
         }
@@ -130,15 +138,16 @@ namespace GameU
             }
         }
 
-        public List<NavNode> FindPath(Vector3 startPosWS, Vector3 endPosWS)
+        public List<NavNode> FindPath(Vector3 startPosWS, Vector3 endPosWS, out float totalCost)
         {
+            totalCost = 0f;
             var startNode = GetNode(startPosWS);
             if (startNode == null) return null;
 
             var endNode = GetNode(endPosWS);
             if (endNode == null) return null;
 
-            return pathfinder.FindPath(startNode, endNode); // TODO convert nodes to coordinates
+            return pathfinder.FindPath(startNode, endNode, out totalCost); // TODO convert nodes to coordinates
         }
 
         private AStarSearch pathfinder;

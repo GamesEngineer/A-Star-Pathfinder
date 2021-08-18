@@ -14,7 +14,7 @@ namespace GameU
             this.graph = graph;
         }
 
-        public List<NavNode> FindPath(NavNode startNode, NavNode goalNode)
+        public List<NavNode> FindPath(NavNode startNode, NavNode goalNode, out float totalCost)
         {
             closedNodes.Clear();
             openNodesQueue.Clear();
@@ -37,6 +37,7 @@ namespace GameU
                 if (current.node == goalNode)
                 {
                     // SUCCESS!
+                    totalCost = current.TotalCost;
                     return ConstructPath(current);
                 }
 
@@ -65,6 +66,7 @@ namespace GameU
             }
 
             // No path found
+            totalCost = 0f;
             return null;
         }
 
