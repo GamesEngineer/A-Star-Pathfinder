@@ -36,6 +36,8 @@ sysinfo.txt
 *.apk
 *.unitypackage
 
+[Ll]ogs/
 *.log
 
 UserSettings/EditorUserSettings.asset
+

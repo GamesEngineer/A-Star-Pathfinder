@@ -7,7 +7,7 @@ namespace GameU
     {
         public void OnDrag(PointerEventData eventData)
         {
-            transform.position = eventData.position;
+            transform.position = eventData.pointerCurrentRaycast.worldPosition;
         }
     }
 }
