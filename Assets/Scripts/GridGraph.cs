@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using TMPro;
+using UnityEngine;
 
 namespace GameU
 {
@@ -21,11 +21,22 @@ namespace GameU
         protected LineRenderer pathRenderer;
 
         [SerializeField]
+        protected Vector2Int gridSize = Vector2Int.one * 100;
+
+        [SerializeField]
+        protected LayerMask obstacleLayers;
+
+        [SerializeField]
         protected TextMeshProUGUI pathCostText;
 
-        public Vector2Int gridSize = Vector2Int.one * 100;
-        public LayerMask obstacleLayers;
         private NavNode[,] nodes;
+        private List<NavNode> path;
+        private float pathCost;
+        private AStarSearch pathfinder;
+
+        public bool IsPathValid => path != null && path.Count >= 2;
+        public IReadOnlyList<NavNode> CurrentPath => path;
+        public int NodeCount => nodes.Length;
 
         private void Awake()
         {
@@ -77,9 +88,10 @@ namespace GameU
 
         private void Update()
         {
-            pathRenderer.positionCount = 0;
-            var path = FindPath(start.position, goal.position, out float totalCost);
-            if (path != null && path.Count > 0)
+            FindPath(start.position, goal.position, out pathCost);
+
+            // Update the path renderer and cost label
+            if (IsPathValid)
             {
                 Vector3 s = GridToWorld(path[0].coords);
                 if (pathRenderer)
@@ -99,7 +111,18 @@ namespace GameU
                 }
                 if (pathCostText)
                 {
-                    pathCostText.text = $"Cost: {totalCost}";
+                    pathCostText.text = $"Cost: {pathCost}";
+                }
+            }
+            else
+            {
+                if (pathRenderer)
+                {
+                    pathRenderer.positionCount = 0;
+                }
+                if (pathCostText)
+                {
+                    pathCostText.text = $"INVALID PATH";
                 }
             }
         }
@@ -128,10 +151,10 @@ namespace GameU
             {
                 for (int a = -1; a <= 1; a++)
                 {
-                    if (a == 0 && b == 0) continue;
+                    if (a == 0 && b == 0) continue; // not a neighbor
                     var offset = new Vector2Int(a, b);
                     NavNode neighbor = GetNode(node.coords + offset);
-                    if (neighbor == null) continue;
+                    if (neighbor == null) continue; // invalid neighbor
                     float edgeCost = offset.magnitude;
                     visitor(neighbor, edgeCost);
                 }
@@ -140,16 +163,21 @@ namespace GameU
 
         public List<NavNode> FindPath(Vector3 startPosWS, Vector3 endPosWS, out float totalCost)
         {
-            totalCost = 0f;
             var startNode = GetNode(startPosWS);
-            if (startNode == null) return null;
+            var goalNode = GetNode(endPosWS);
 
-            var endNode = GetNode(endPosWS);
-            if (endNode == null) return null;
+            // Can we reuse the current path?
+            if (IsPathValid)
+            {
+                if (path[0] == startNode && path[path.Count - 1] == goalNode)
+                {
+                    totalCost = pathCost;
+                    return path;
+                }
+            }
 
-            return pathfinder.FindPath(startNode, endNode, out totalCost); // TODO convert nodes to coordinates
+            path = pathfinder.FindPath(startNode, goalNode, out totalCost); // TODO convert nodes to coordinates
+            return path;
         }
-
-        private AStarSearch pathfinder;
     }
 }

@@ -16,6 +16,9 @@ namespace GameU
 
         public List<NavNode> FindPath(NavNode startNode, NavNode goalNode, out float totalCost)
         {
+            totalCost = 0f;
+            if (startNode == null || goalNode == null) return null;
+
             closedNodes.Clear();
             openNodesQueue.Clear();
             openNodesLookup.Clear();
@@ -23,7 +26,7 @@ namespace GameU
             OpenedNode start = new OpenedNode(startNode, goalNode);
             openNodesQueue.Enqueue(start);
 
-            int failsafe = 10000;
+            int failsafe = graph.NodeCount;
             while (openNodesQueue.Count > 0)
             {
                 if (failsafe-- < 0)
@@ -66,7 +69,6 @@ namespace GameU
             }
 
             // No path found
-            totalCost = 0f;
             return null;
         }
 

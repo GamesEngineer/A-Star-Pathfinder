@@ -21,6 +21,9 @@ namespace Tues7
         [SerializeField]
         protected Vector2Int gridSize = Vector2Int.one * 100;
 
+        [SerializeField]
+        protected LayerMask obstacleLayers;
+
         private void OnDrawGizmos()
         {
             if (grid == null) return;
@@ -28,6 +31,28 @@ namespace Tues7
             Vector3 worldSize = grid.CellToLocal( (Vector3Int) gridSize);
             Gizmos.color = Color.yellow;
             Gizmos.DrawWireCube(transform.position + worldSize / 2f, worldSize);
+        }
+
+        private NavNode[,] nodes;
+        private List<NavNode> path;
+        private float pathCost;
+        private AStarSearch pathfinder;
+
+        private void Awake()
+        {
+            pathfinder = new AStarSearch(this);
+            nodes = new NavNode[gridSize.x, gridSize.y];
+            for (int y = 0; y < gridSize.y; y++)
+            {
+                for (int x = 0; x < gridSize.x; x++)
+                {
+                    Vector3Int coords = new Vector3Int(x, y, 0);
+                    Vector3 posWS = grid.GetCellCenterWorld(coords);
+                    bool isObstacle = Physics.CheckBox(posWS, grid.cellSize / 2f, Quaternion.identity, obstacleLayers);
+                    if (isObstacle) continue;
+                    nodes[x, y] = new NavNode((Vector2Int)coords);
+                }
+            }
         }
     }
 }

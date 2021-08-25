@@ -351,6 +351,9 @@ MonoBehaviour:
   goal: {fileID: 1756171265}
   pathRenderer: {fileID: 696284743}
   gridSize: {x: 100, y: 100}
+  obstacleLayers:
+    serializedVersion: 2
+    m_Bits: 64
 --- !u!120 &696284743
 LineRenderer:
   m_ObjectHideFlags: 0
@@ -461,7 +464,7 @@ GameObject:
   - component: {fileID: 1012208654}
   - component: {fileID: 1012208653}
   - component: {fileID: 1012208652}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Obstacle
   m_TagString: Untagged
   m_Icon: {fileID: 0}

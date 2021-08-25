@@ -2178,11 +2178,11 @@ MonoBehaviour:
   start: {fileID: 1306247907}
   goal: {fileID: 772410543}
   pathRenderer: {fileID: 1289972503}
-  pathCostText: {fileID: 23669858}
   gridSize: {x: 100, y: 100}
   obstacleLayers:
     serializedVersion: 2
     m_Bits: 64
+  pathCostText: {fileID: 23669858}
 --- !u!120 &1289972503
 LineRenderer:
   m_ObjectHideFlags: 0
