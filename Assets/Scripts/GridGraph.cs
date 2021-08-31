@@ -5,8 +5,7 @@ using UnityEngine;
 
 namespace GameU
 {
-    [RequireComponent(typeof(Grid))]
-    public class GridGraph : MonoBehaviour
+    public class GridGraph : MonoBehaviour, INavNodeGraph
     {
         [SerializeField]
         protected Grid grid;
@@ -36,20 +35,20 @@ namespace GameU
 
         public bool IsPathValid => path != null && path.Count >= 2;
         public IReadOnlyList<NavNode> CurrentPath => path;
-        public int NodeCount => nodes.Length;
+        public int TotalNodeCount => nodes.Length;
 
         private void Awake()
         {
             pathfinder = new AStarSearch(this);
-            if (!grid) grid = GetComponent<Grid>();
             nodes = new NavNode[gridSize.x, gridSize.y];
             for (int y = 0; y < gridSize.y; y++)
             {
                 for (int x = 0; x < gridSize.x; x++)
                 {
                     Vector3Int coords = new Vector3Int(x, y, 0);
-                    Vector3 p = grid.GetCellCenterWorld(coords);
-                    if (Physics.CheckBox(p, grid.cellSize/2f, Quaternion.identity, obstacleLayers)) continue;
+                    Vector3 posWS = grid.GetCellCenterWorld(coords);
+                    bool isObstacle = Physics.CheckBox(posWS, grid.cellSize / 2f, Quaternion.identity, obstacleLayers);
+                    if (isObstacle) continue;
                     nodes[x, y] = new NavNode((Vector2Int)coords);
                 }
             }
@@ -88,42 +87,23 @@ namespace GameU
 
         private void Update()
         {
-            FindPath(start.position, goal.position, out pathCost);
+            FindPath(start.position, goal.position);
 
             // Update the path renderer and cost label
             if (IsPathValid)
             {
-                Vector3 s = GridToWorld(path[0].coords);
-                if (pathRenderer)
+                pathRenderer.positionCount = path.Count;
+                for (int i = 0; i < path.Count; i++)
                 {
-                    pathRenderer.positionCount = path.Count;
-                    pathRenderer.SetPosition(0, s);
+                    Vector3 nodePosition = GridToWorld(path[i].coords);
+                    pathRenderer.SetPosition(i, nodePosition);
                 }
-                for (int n=1; n<path.Count; n++)
-                {
-                    Vector3 e = GridToWorld(path[n].coords);
-                    if (pathRenderer)
-                    {
-                        pathRenderer.SetPosition(n, e);
-                    }
-                    Debug.DrawLine(s, e, Color.magenta);
-                    s = e;
-                }
-                if (pathCostText)
-                {
-                    pathCostText.text = $"Cost: {pathCost}";
-                }
+                pathCostText.text = $"Cost: {pathCost}";
             }
             else
             {
-                if (pathRenderer)
-                {
-                    pathRenderer.positionCount = 0;
-                }
-                if (pathCostText)
-                {
-                    pathCostText.text = $"INVALID PATH";
-                }
+                pathRenderer.positionCount = 0;
+                pathCostText.text = $"INVALID PATH";
             }
         }
 
@@ -139,13 +119,24 @@ namespace GameU
             return nodes[coords.x, coords.y];
         }
 
-        public NavNode GetNode(Vector3 posWS)
-        {
-            var coords = WorldToGrid(posWS);
-            return GetNode(coords);
-        }
+        public NavNode GetNode(Vector3 posWS) => GetNode( WorldToGrid(posWS) );
 
-        public void ForEachNeighbor(NavNode node, Action<NavNode, float> visitor)
+        public bool FindPath(Vector3 startPosWS, Vector3 endPosWS)
+        {
+            var startNode = GetNode(startPosWS);
+            var goalNode = GetNode(endPosWS);
+            #region OPTIONAL CODING CHALLENGE
+            // Optimization: avoid recomputing the path when it is still valid
+            if (IsPathValid && path[0] == startNode && path[path.Count - 1] == goalNode)
+            {
+                return true;
+            }
+            #endregion
+            path = pathfinder.FindPath(startNode, goalNode, out pathCost);
+            return IsPathValid;
+        }
+        
+        public void ForEachNeighbor(NavNode node, Action<NavNode, float> visitorFunc)
         {
             for (int b = -1; b <= 1; b++)
             {
@@ -156,28 +147,10 @@ namespace GameU
                     NavNode neighbor = GetNode(node.coords + offset);
                     if (neighbor == null) continue; // invalid neighbor
                     float edgeCost = offset.magnitude;
-                    visitor(neighbor, edgeCost);
+                    visitorFunc(neighbor, edgeCost);
                 }
             }
         }
-
-        public List<NavNode> FindPath(Vector3 startPosWS, Vector3 endPosWS, out float totalCost)
-        {
-            var startNode = GetNode(startPosWS);
-            var goalNode = GetNode(endPosWS);
-
-            // Can we reuse the current path?
-            if (IsPathValid)
-            {
-                if (path[0] == startNode && path[path.Count - 1] == goalNode)
-                {
-                    totalCost = pathCost;
-                    return path;
-                }
-            }
-
-            path = pathfinder.FindPath(startNode, goalNode, out totalCost); // TODO convert nodes to coordinates
-            return path;
-        }
+    
     }
 }

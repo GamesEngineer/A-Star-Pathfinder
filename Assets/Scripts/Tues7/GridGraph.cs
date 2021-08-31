@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -34,7 +33,7 @@ namespace Tues7
         }
 
         private NavNode[,] nodes;
-        private List<NavNode> path;
+        private List<NavNode> path; // TODO (optional) - move path and its cost into its own class (ala NavMeshPath)
         private float pathCost;
         private AStarSearch pathfinder;
 
@@ -53,6 +52,11 @@ namespace Tues7
                     nodes[x, y] = new NavNode((Vector2Int)coords);
                 }
             }
+        }
+
+        private void Update()
+        {
+            // TODO - Tuesday 7 PM, Aug 31
         }
     }
 }

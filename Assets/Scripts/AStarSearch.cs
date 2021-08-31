@@ -1,4 +1,4 @@
-#define USE_OCTILE_DIAGONAL_DISTANCE
+//#define USE_OCTILE_DIAGONAL_DISTANCE
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,9 +7,9 @@ namespace GameU
 {
     public class AStarSearch
     {
-        public readonly GridGraph graph;
+        public readonly INavNodeGraph graph;
 
-        public AStarSearch(GridGraph graph)
+        public AStarSearch(INavNodeGraph graph)
         {
             this.graph = graph;
         }
@@ -26,7 +26,7 @@ namespace GameU
             OpenedNode start = new OpenedNode(startNode, goalNode);
             openNodesQueue.Enqueue(start);
 
-            int failsafe = graph.NodeCount;
+            int failsafe = graph.TotalNodeCount;
             while (openNodesQueue.Count > 0)
             {
                 if (failsafe-- < 0)
@@ -72,19 +72,19 @@ namespace GameU
             return null;
         }
 
-        private List<NavNode> ConstructPath(OpenedNode node)
+        private List<NavNode> ConstructPath(OpenedNode pathNode)
         {
             var path = new List<NavNode>();
-            while (node != null)
+            while (pathNode != null)
             {
-                path.Add(node.node);
-                node = node.UpstreamNode;
+                path.Add(pathNode.node);
+                pathNode = pathNode.UpstreamNode;
             }
             path.Reverse();
             return path;
         }
 
-        // TODO - replace Heap with PriorityQueue once .NET 6 is available for use
+        // TODO - replace MinHeap with PriorityQueue once .NET 6 is available for use
         private readonly MinHeap<OpenedNode> openNodesQueue = new MinHeap<OpenedNode>();
         private readonly Dictionary<NavNode, OpenedNode> openNodesLookup = new Dictionary<NavNode, OpenedNode>();
         private readonly HashSet<NavNode> closedNodes = new HashSet<NavNode>();
@@ -94,13 +94,7 @@ namespace GameU
         /// </summary>
         private class OpenedNode : IEquatable<OpenedNode>, IComparable<OpenedNode>, IHeapItem
         {
-            public OpenedNode(NavNode node, NavNode goalNode)
-            {
-                this.node = node;
-                RemainingPathCost = EstimatePathCost(node.coords, goalNode.coords);
-            }
-
-            public OpenedNode(NavNode node, NavNode goalNode, OpenedNode upstreamNode, float edgeCost)
+            public OpenedNode(NavNode node, NavNode goalNode, OpenedNode upstreamNode = null, float edgeCost = 0f)
             {
                 this.node = node;
                 Update(upstreamNode, edgeCost, goalNode);
@@ -111,7 +105,7 @@ namespace GameU
             public float PartialPathCost { get; private set; }
             public float RemainingPathCost { get; private set; }
             public float TotalCost => PartialPathCost + RemainingPathCost;
-            public int QueuePosition { get; set; } = -1;
+            public int HeapPosition { get; set; } = -1;
 
             public int CompareTo(OpenedNode other)
             {
@@ -122,17 +116,16 @@ namespace GameU
 #else
                 int cmp = d < 0f ? -1 : (d > 0f ? 1 : 0);
 #endif
-
                 return cmp;
             }
 
             public void Update(OpenedNode upstreamNode, float edgeCost, NavNode goalNode)
             {
                 this.UpstreamNode = upstreamNode;
-                this.PartialPathCost = edgeCost + node.penaltyCost;
+                this.PartialPathCost = node.penaltyCost;
                 if (upstreamNode != null)
                 {
-                    this.PartialPathCost += upstreamNode.PartialPathCost;
+                    this.PartialPathCost += edgeCost + upstreamNode.PartialPathCost;
                 }
                 RemainingPathCost = EstimatePathCost(node.coords, goalNode.coords);
             }
@@ -163,7 +156,7 @@ namespace GameU
                     UpstreamNode == other.UpstreamNode &&
                     PartialPathCost == other.PartialPathCost &&
                     RemainingPathCost == other.RemainingPathCost &&
-                    QueuePosition == other.QueuePosition;
+                    HeapPosition == other.HeapPosition;
             }
         }
     }
