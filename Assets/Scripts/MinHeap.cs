@@ -1,4 +1,4 @@
-﻿#define ENABLE_VALIDATION
+﻿//#define ENABLE_VALIDATION
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,10 +7,11 @@ namespace GameU
 {
     public interface IHeapItem
     {
-        public int QueuePosition { get; set; }
+        public int HeapPosition { get; set; }
     }
 
-    public class MinHeap<Item> : ICollection<Item> where Item : IEquatable<Item>, IComparable<Item>, IHeapItem
+    public class MinHeap<Item> : ICollection<Item>
+        where Item : IEquatable<Item>, IComparable<Item>, IHeapItem
     {
         private static int ParentIndex(int nodeIndex) => nodeIndex == 0 ? -1 : (nodeIndex - 1) / 2;
         private static int LeftChildIndex(int nodeIndex) => nodeIndex * 2 + 1;
@@ -40,16 +41,16 @@ namespace GameU
 
         public void Enqueue(Item item)
         {
-            item.QueuePosition = items.Count;
+            item.HeapPosition = items.Count;
             items.Add(item);
-            SiftUp(item.QueuePosition);
+            SiftUp(item.HeapPosition);
         }
 
         public void Clear() => items.Clear();
 
-        public bool Contains(Item item) => item.Equals(items[item.QueuePosition]);
+        public bool Contains(Item item) => item.Equals(items[item.HeapPosition]);
 
-        public int IndexOf(Item item) => item.QueuePosition;
+        public int IndexOf(Item item) => item.HeapPosition;
 
         public void CopyTo(Item[] array, int arrayIndex) => items.CopyTo(array, arrayIndex);
 
@@ -67,7 +68,7 @@ namespace GameU
             return top;
         }
 
-        public bool Remove(Item item) => RemoveAt(item.QueuePosition);
+        public bool Remove(Item item) => RemoveAt(item.HeapPosition);
 
         public bool RemoveAt(int index)
         {
@@ -79,7 +80,7 @@ namespace GameU
 
             if (items.Count == 0) return true;
 
-            last.QueuePosition = index;
+            last.HeapPosition = index;
             items[index] = last;
             SiftDown(index);
 
@@ -88,7 +89,7 @@ namespace GameU
 
         public int Reprioritize(Item item)
         {
-            int oldIndex = item.QueuePosition;
+            int oldIndex = item.HeapPosition;
             int newIndex = SiftUp(oldIndex);
             if (newIndex == oldIndex)
             {
@@ -101,8 +102,8 @@ namespace GameU
         {
             Item a = items[indexA];
             Item b = items[indexB];
-            a.QueuePosition = indexB;
-            b.QueuePosition = indexA;
+            a.HeapPosition = indexB;
+            b.HeapPosition = indexA;
             items[indexA] = b;
             items[indexB] = a;
         }

@@ -1,4 +1,4 @@
-#define USE_OCTILE_DIAGONAL_DISTANCE
+//#define USE_OCTILE_DIAGONAL_DISTANCE
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,27 +7,29 @@ namespace GameU
 {
     public class AStarSearch
     {
-        public readonly GridGraph graph;
+        public readonly INavNodeGraph graph;
 
-        public AStarSearch(GridGraph graph)
+        public AStarSearch(INavNodeGraph graph)
         {
             this.graph = graph;
         }
 
         public List<NavNode> FindPath(NavNode startNode, NavNode goalNode, out float totalCost)
         {
+            totalCost = 0f;
+            if (startNode == null || goalNode == null) return null;
+
             closedNodes.Clear();
             openNodesQueue.Clear();
             openNodesLookup.Clear();
 
-            OpenedNode start = new OpenedNode(startNode, goalNode);
+            var start = OpenedNode.Create(startNode, goalNode);
             openNodesQueue.Enqueue(start);
 
-            int failsafe = 10000;
+            int failsafe = graph.TotalNodeCount;
             while (openNodesQueue.Count > 0)
             {
-                if (failsafe-- < 0)
-                    break;
+                if (--failsafe < 0) break;
 
                 // From the OPEN set, take the node with lowest total cost
                 OpenedNode current = openNodesQueue.Dequeue();
@@ -58,7 +60,7 @@ namespace GameU
                     }
                     else
                     {
-                        openNeighbor = new OpenedNode(neighbor, goalNode, current, edgeCost);
+                        openNeighbor = OpenedNode.Create(neighbor, goalNode, current, edgeCost);
                         openNodesQueue.Enqueue(openNeighbor);
                         openNodesLookup.Add(neighbor, openNeighbor);
                     }
@@ -66,50 +68,48 @@ namespace GameU
             }
 
             // No path found
-            totalCost = 0f;
             return null;
         }
 
-        private List<NavNode> ConstructPath(OpenedNode node)
+        private static List<NavNode> ConstructPath(OpenedNode pathNode)
         {
             var path = new List<NavNode>();
-            while (node != null)
+            while (pathNode != null)
             {
-                path.Add(node.node);
-                node = node.UpstreamNode;
+                path.Add(pathNode.node);
+                pathNode = pathNode.UpstreamNode;
             }
-            path.Reverse();
+            path.Reverse(); // DISCUSS: Why use Add(node) and Reverse(), instead of just Insert(0, node)?
             return path;
         }
 
-        // TODO - replace Heap with PriorityQueue once .NET 6 is available for use
-        private readonly MinHeap<OpenedNode> openNodesQueue = new MinHeap<OpenedNode>();
+        private readonly MinHeap<OpenedNode> openNodesQueue = new MinHeap<OpenedNode>(); // TODO - replace MinHeap with PriorityQueue once .NET 6 is available for use
         private readonly Dictionary<NavNode, OpenedNode> openNodesLookup = new Dictionary<NavNode, OpenedNode>();
         private readonly HashSet<NavNode> closedNodes = new HashSet<NavNode>();
 
         /// <summary>
-        /// Information about a node in the open set.
+        /// A reference to a NavNode with additional "cost" information that is used by the search algorithm.
         /// </summary>
         private class OpenedNode : IEquatable<OpenedNode>, IComparable<OpenedNode>, IHeapItem
         {
-            public OpenedNode(NavNode node, NavNode goalNode)
+            public static OpenedNode Create(NavNode node, NavNode goalNode, OpenedNode upstreamNode = null, float edgeCost = 0f)
             {
-                this.node = node;
-                RemainingPathCost = EstimatePathCost(node.coords, goalNode.coords);
+                // TODO - optimize with object pooling
+                return new OpenedNode(node, goalNode, upstreamNode, edgeCost);
             }
 
-            public OpenedNode(NavNode node, NavNode goalNode, OpenedNode upstreamNode, float edgeCost)
+            private OpenedNode(NavNode node, NavNode goalNode, OpenedNode upstreamNode = null, float edgeCost = 0f)
             {
                 this.node = node;
                 Update(upstreamNode, edgeCost, goalNode);
             }
 
-            public readonly NavNode node;
+            public NavNode node;
             public OpenedNode UpstreamNode { get; private set; }
             public float PartialPathCost { get; private set; }
             public float RemainingPathCost { get; private set; }
             public float TotalCost => PartialPathCost + RemainingPathCost;
-            public int QueuePosition { get; set; } = -1;
+            public int HeapPosition { get; set; } = -1;
 
             public int CompareTo(OpenedNode other)
             {
@@ -120,17 +120,25 @@ namespace GameU
 #else
                 int cmp = d < 0f ? -1 : (d > 0f ? 1 : 0);
 #endif
-
                 return cmp;
             }
 
+            public bool Equals(OpenedNode other)
+            {
+                return node == other.node &&
+                    UpstreamNode == other.UpstreamNode &&
+                    PartialPathCost == other.PartialPathCost &&
+                    RemainingPathCost == other.RemainingPathCost &&
+                    HeapPosition == other.HeapPosition;
+            }
+            
             public void Update(OpenedNode upstreamNode, float edgeCost, NavNode goalNode)
             {
                 this.UpstreamNode = upstreamNode;
-                this.PartialPathCost = edgeCost + node.penaltyCost;
+                this.PartialPathCost = node.penaltyCost;
                 if (upstreamNode != null)
                 {
-                    this.PartialPathCost += upstreamNode.PartialPathCost;
+                    this.PartialPathCost += edgeCost + upstreamNode.PartialPathCost;
                 }
                 RemainingPathCost = EstimatePathCost(node.coords, goalNode.coords);
             }
@@ -153,15 +161,6 @@ namespace GameU
 #else
                 return Vector2.Distance(from, to);
 #endif
-            }
-
-            public bool Equals(OpenedNode other)
-            {
-                return node == other.node &&
-                    UpstreamNode == other.UpstreamNode &&
-                    PartialPathCost == other.PartialPathCost &&
-                    RemainingPathCost == other.RemainingPathCost &&
-                    QueuePosition == other.QueuePosition;
             }
         }
     }

@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using TMPro;
+using UnityEngine;
 
 namespace GameU
 {
-    [RequireComponent(typeof(Grid))]
-    public class GridGraph : MonoBehaviour
+    public class GridGraph : MonoBehaviour, INavNodeGraph
     {
         [SerializeField]
         protected Grid grid;
@@ -21,25 +20,40 @@ namespace GameU
         protected LineRenderer pathRenderer;
 
         [SerializeField]
+        protected Vector2Int gridSize = Vector2Int.one * 100;
+
+        [SerializeField]
+        protected LayerMask obstacleLayers;
+
+        [SerializeField]
         protected TextMeshProUGUI pathCostText;
 
-        public Vector2Int gridSize = Vector2Int.one * 100;
-        public LayerMask obstacleLayers;
         private NavNode[,] nodes;
+        private List<NavNode> path;
+        private float pathCost;
+        private AStarSearch pathfinder;
+
+        public bool IsPathValid => path != null && path.Count >= 2;
+        public IReadOnlyList<NavNode> CurrentPath => path;
+        public int TotalNodeCount => nodes.Length;
+
+        public MapManager mapManager;
 
         private void Awake()
         {
             pathfinder = new AStarSearch(this);
-            if (!grid) grid = GetComponent<Grid>();
             nodes = new NavNode[gridSize.x, gridSize.y];
             for (int y = 0; y < gridSize.y; y++)
             {
                 for (int x = 0; x < gridSize.x; x++)
                 {
                     Vector3Int coords = new Vector3Int(x, y, 0);
-                    Vector3 p = grid.GetCellCenterWorld(coords);
-                    if (Physics.CheckBox(p, grid.cellSize/2f, Quaternion.identity, obstacleLayers)) continue;
-                    nodes[x, y] = new NavNode((Vector2Int)coords);
+                    Vector3 posWS = grid.GetCellCenterWorld(coords);
+                    bool isObstacle = Physics.CheckBox(posWS, grid.cellSize / 2f, Quaternion.identity, obstacleLayers);
+                    if (isObstacle) continue;
+                    var tile = mapManager.GetTileData(posWS);
+                    if (tile && tile.isObstacle) continue;
+                    nodes[x, y] = new NavNode((Vector2Int)coords, tile ? tile.moveCost : 0f);
                 }
             }
         }
@@ -77,34 +91,27 @@ namespace GameU
 
         private void Update()
         {
-            pathRenderer.positionCount = 0;
-            var path = FindPath(start.position, goal.position, out float totalCost);
-            if (path != null && path.Count > 0)
+            FindPath(start.position, goal.position);
+
+            // Update the path renderer and cost label
+            if (IsPathValid)
             {
-                Vector3 s = GridToWorld(path[0].coords);
-                if (pathRenderer)
+                pathRenderer.positionCount = path.Count;
+                for (int i = 0; i < path.Count; i++)
                 {
-                    pathRenderer.positionCount = path.Count;
-                    pathRenderer.SetPosition(0, s);
+                    Vector3 nodePosition = GridToWorld(path[i].coords);
+                    pathRenderer.SetPosition(i, nodePosition);
                 }
-                for (int n=1; n<path.Count; n++)
-                {
-                    Vector3 e = GridToWorld(path[n].coords);
-                    if (pathRenderer)
-                    {
-                        pathRenderer.SetPosition(n, e);
-                    }
-                    Debug.DrawLine(s, e, Color.magenta);
-                    s = e;
-                }
-                if (pathCostText)
-                {
-                    pathCostText.text = $"Cost: {totalCost}";
-                }
+                pathCostText.text = $"Cost: {pathCost}";
+            }
+            else
+            {
+                pathRenderer.positionCount = 0;
+                pathCostText.text = $"INVALID PATH";
             }
         }
 
-        public Vector3 GridToWorld(Vector2Int coords) => grid.CellToWorld((Vector3Int)coords);
+        public Vector3 GridToWorld(Vector2Int coords) => grid.CellToWorld((Vector3Int)coords) + grid.cellSize * 0.5f;
 
         public Vector2Int WorldToGrid(Vector3 p) => (Vector2Int)grid.WorldToCell(p);
 
@@ -116,40 +123,40 @@ namespace GameU
             return nodes[coords.x, coords.y];
         }
 
-        public NavNode GetNode(Vector3 posWS)
-        {
-            var coords = WorldToGrid(posWS);
-            return GetNode(coords);
-        }
+        public NavNode GetNode(Vector3 posWS) => GetNode( WorldToGrid(posWS) );
 
-        public void ForEachNeighbor(NavNode node, Action<NavNode, float> visitor)
+        public bool FindPath(Vector3 startPosWS, Vector3 endPosWS)
+        {
+            var startNode = GetNode(startPosWS);
+            var goalNode = GetNode(endPosWS);
+            #region OPTIONAL CODING CHALLENGE
+#if true
+            // Optimization: avoid recomputing the path when it is still valid
+            if (IsPathValid && path[0] == startNode && path[path.Count - 1] == goalNode)
+            {
+                return true;
+            }
+#endif
+            #endregion
+            path = pathfinder.FindPath(startNode, goalNode, out pathCost);
+            return IsPathValid;
+        }
+        
+        public void ForEachNeighbor(NavNode node, Action<NavNode, float> visitorFunc)
         {
             for (int b = -1; b <= 1; b++)
             {
                 for (int a = -1; a <= 1; a++)
                 {
-                    if (a == 0 && b == 0) continue;
+                    if (a == 0 && b == 0) continue; // not a neighbor
                     var offset = new Vector2Int(a, b);
                     NavNode neighbor = GetNode(node.coords + offset);
-                    if (neighbor == null) continue;
+                    if (neighbor == null) continue; // invalid neighbor
                     float edgeCost = offset.magnitude;
-                    visitor(neighbor, edgeCost);
+                    visitorFunc(neighbor, edgeCost);
                 }
             }
         }
-
-        public List<NavNode> FindPath(Vector3 startPosWS, Vector3 endPosWS, out float totalCost)
-        {
-            totalCost = 0f;
-            var startNode = GetNode(startPosWS);
-            if (startNode == null) return null;
-
-            var endNode = GetNode(endPosWS);
-            if (endNode == null) return null;
-
-            return pathfinder.FindPath(startNode, endNode, out totalCost); // TODO convert nodes to coordinates
-        }
-
-        private AStarSearch pathfinder;
+    
     }
 }
