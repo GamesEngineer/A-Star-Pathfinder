@@ -2,7 +2,7 @@
 
 namespace Tues7
 {
-    class NavNode
+    public class NavNode
     {
         public readonly Vector2Int coords;
         public float penaltyCost;

@@ -23,14 +23,13 @@ namespace GameU
             openNodesQueue.Clear();
             openNodesLookup.Clear();
 
-            OpenedNode start = new OpenedNode(startNode, goalNode);
+            var start = OpenedNode.Create(startNode, goalNode);
             openNodesQueue.Enqueue(start);
 
             int failsafe = graph.TotalNodeCount;
             while (openNodesQueue.Count > 0)
             {
-                if (failsafe-- < 0)
-                    break;
+                if (--failsafe < 0) break;
 
                 // From the OPEN set, take the node with lowest total cost
                 OpenedNode current = openNodesQueue.Dequeue();
@@ -61,7 +60,7 @@ namespace GameU
                     }
                     else
                     {
-                        openNeighbor = new OpenedNode(neighbor, goalNode, current, edgeCost);
+                        openNeighbor = OpenedNode.Create(neighbor, goalNode, current, edgeCost);
                         openNodesQueue.Enqueue(openNeighbor);
                         openNodesLookup.Add(neighbor, openNeighbor);
                     }
@@ -72,7 +71,7 @@ namespace GameU
             return null;
         }
 
-        private List<NavNode> ConstructPath(OpenedNode pathNode)
+        private static List<NavNode> ConstructPath(OpenedNode pathNode)
         {
             var path = new List<NavNode>();
             while (pathNode != null)
@@ -80,27 +79,32 @@ namespace GameU
                 path.Add(pathNode.node);
                 pathNode = pathNode.UpstreamNode;
             }
-            path.Reverse();
+            path.Reverse(); // DISCUSS: Why use Add(node) and Reverse(), instead of just Insert(0, node)?
             return path;
         }
 
-        // TODO - replace MinHeap with PriorityQueue once .NET 6 is available for use
-        private readonly MinHeap<OpenedNode> openNodesQueue = new MinHeap<OpenedNode>();
+        private readonly MinHeap<OpenedNode> openNodesQueue = new MinHeap<OpenedNode>(); // TODO - replace MinHeap with PriorityQueue once .NET 6 is available for use
         private readonly Dictionary<NavNode, OpenedNode> openNodesLookup = new Dictionary<NavNode, OpenedNode>();
         private readonly HashSet<NavNode> closedNodes = new HashSet<NavNode>();
 
         /// <summary>
-        /// Information about a node in the open set.
+        /// A reference to a NavNode with additional "cost" information that is used by the search algorithm.
         /// </summary>
         private class OpenedNode : IEquatable<OpenedNode>, IComparable<OpenedNode>, IHeapItem
         {
-            public OpenedNode(NavNode node, NavNode goalNode, OpenedNode upstreamNode = null, float edgeCost = 0f)
+            public static OpenedNode Create(NavNode node, NavNode goalNode, OpenedNode upstreamNode = null, float edgeCost = 0f)
+            {
+                // TODO - optimize with object pooling
+                return new OpenedNode(node, goalNode, upstreamNode, edgeCost);
+            }
+
+            private OpenedNode(NavNode node, NavNode goalNode, OpenedNode upstreamNode = null, float edgeCost = 0f)
             {
                 this.node = node;
                 Update(upstreamNode, edgeCost, goalNode);
             }
 
-            public readonly NavNode node;
+            public NavNode node;
             public OpenedNode UpstreamNode { get; private set; }
             public float PartialPathCost { get; private set; }
             public float RemainingPathCost { get; private set; }
@@ -119,6 +123,15 @@ namespace GameU
                 return cmp;
             }
 
+            public bool Equals(OpenedNode other)
+            {
+                return node == other.node &&
+                    UpstreamNode == other.UpstreamNode &&
+                    PartialPathCost == other.PartialPathCost &&
+                    RemainingPathCost == other.RemainingPathCost &&
+                    HeapPosition == other.HeapPosition;
+            }
+            
             public void Update(OpenedNode upstreamNode, float edgeCost, NavNode goalNode)
             {
                 this.UpstreamNode = upstreamNode;
@@ -148,15 +161,6 @@ namespace GameU
 #else
                 return Vector2.Distance(from, to);
 #endif
-            }
-
-            public bool Equals(OpenedNode other)
-            {
-                return node == other.node &&
-                    UpstreamNode == other.UpstreamNode &&
-                    PartialPathCost == other.PartialPathCost &&
-                    RemainingPathCost == other.RemainingPathCost &&
-                    HeapPosition == other.HeapPosition;
             }
         }
     }

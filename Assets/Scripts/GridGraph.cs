@@ -37,6 +37,8 @@ namespace GameU
         public IReadOnlyList<NavNode> CurrentPath => path;
         public int TotalNodeCount => nodes.Length;
 
+        public MapManager mapManager;
+
         private void Awake()
         {
             pathfinder = new AStarSearch(this);
@@ -49,7 +51,9 @@ namespace GameU
                     Vector3 posWS = grid.GetCellCenterWorld(coords);
                     bool isObstacle = Physics.CheckBox(posWS, grid.cellSize / 2f, Quaternion.identity, obstacleLayers);
                     if (isObstacle) continue;
-                    nodes[x, y] = new NavNode((Vector2Int)coords);
+                    var tile = mapManager.GetTileData(posWS);
+                    if (tile && tile.isObstacle) continue;
+                    nodes[x, y] = new NavNode((Vector2Int)coords, tile ? tile.moveCost : 0f);
                 }
             }
         }
@@ -107,7 +111,7 @@ namespace GameU
             }
         }
 
-        public Vector3 GridToWorld(Vector2Int coords) => grid.CellToWorld((Vector3Int)coords);
+        public Vector3 GridToWorld(Vector2Int coords) => grid.CellToWorld((Vector3Int)coords) + grid.cellSize * 0.5f;
 
         public Vector2Int WorldToGrid(Vector3 p) => (Vector2Int)grid.WorldToCell(p);
 
@@ -126,11 +130,13 @@ namespace GameU
             var startNode = GetNode(startPosWS);
             var goalNode = GetNode(endPosWS);
             #region OPTIONAL CODING CHALLENGE
+#if true
             // Optimization: avoid recomputing the path when it is still valid
             if (IsPathValid && path[0] == startNode && path[path.Count - 1] == goalNode)
             {
                 return true;
             }
+#endif
             #endregion
             path = pathfinder.FindPath(startNode, goalNode, out pathCost);
             return IsPathValid;
