@@ -15,4 +15,4 @@ MonoBehaviour:
   tiles:
   - {fileID: 11400000, guid: 95a56d91bc20bef4f87e20c07b655daf, type: 2}
   isObstacle: 0
-  moveCost: 3
+  moveCost: 2

@@ -21,6 +21,7 @@ namespace GameU
 
         [SerializeField]
         protected Vector2Int gridSize = Vector2Int.one * 100;
+        public Vector2Int GridSize => gridSize;
 
         [SerializeField]
         protected LayerMask obstacleLayers;
@@ -36,6 +37,10 @@ namespace GameU
         public bool IsPathValid => path != null && path.Count >= 2;
         public IReadOnlyList<NavNode> CurrentPath => path;
         public int TotalNodeCount => nodes.Length;
+        public int TotalNodesOpened => pathfinder.TotalNodesOpened;
+        public int MaxNodesOpenedAtOnce => pathfinder.MaxNodesOpenedAtOnce;
+        public int TotalNodesClosed => pathfinder.TotalNodesClosed;
+        public int TotalNodesReprioritized => pathfinder.TotalNodesReprioritized;
 
         public MapManager mapManager;
 

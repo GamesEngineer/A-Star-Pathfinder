@@ -14,9 +14,19 @@ namespace GameU
             this.graph = graph;
         }
 
+        public int TotalNodesOpened { get; private set; }
+        public int MaxNodesOpenedAtOnce { get; private set; }
+        public int TotalNodesClosed { get; private set; }
+        public int TotalNodesReprioritized { get; private set; }
+
         public List<NavNode> FindPath(NavNode startNode, NavNode goalNode, out float totalCost)
         {
             totalCost = 0f;
+            TotalNodesOpened = 0;
+            MaxNodesOpenedAtOnce = 0;
+            TotalNodesClosed = 0;
+            TotalNodesReprioritized = 0;
+
             if (startNode == null || goalNode == null) return null;
 
             closedNodes.Clear();
@@ -25,6 +35,8 @@ namespace GameU
 
             var start = OpenedNode.Create(startNode, goalNode);
             openNodesQueue.Enqueue(start);
+            TotalNodesOpened++;
+            MaxNodesOpenedAtOnce = openNodesQueue.Count;
 
             int failsafe = graph.TotalNodeCount;
             while (openNodesQueue.Count > 0)
@@ -34,6 +46,7 @@ namespace GameU
                 // From the OPEN set, take the node with lowest total cost
                 OpenedNode current = openNodesQueue.Dequeue();
                 closedNodes.Add(current.node);
+                TotalNodesClosed++;
                 openNodesLookup.Remove(current.node);
 
                 if (current.node == goalNode)
@@ -56,6 +69,7 @@ namespace GameU
                         {
                             openNeighbor.Update(current, edgeCost, goalNode);
                             openNodesQueue.Reprioritize(openNeighbor);
+                            TotalNodesReprioritized++;
                         }
                     }
                     else
@@ -63,6 +77,11 @@ namespace GameU
                         openNeighbor = OpenedNode.Create(neighbor, goalNode, current, edgeCost);
                         openNodesQueue.Enqueue(openNeighbor);
                         openNodesLookup.Add(neighbor, openNeighbor);
+                        TotalNodesOpened++;
+                        if (openNodesQueue.Count > MaxNodesOpenedAtOnce)
+                        {
+                            MaxNodesOpenedAtOnce = openNodesQueue.Count;
+                        }
                     }
                 });
             }
